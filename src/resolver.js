@@ -1,9 +1,32 @@
 'use strict';
 
-const { getObjectAccessContext, getParamsAccessContext, getCompletedObjectAccessContext, getCompletedParamsAccessContext } = require('./context');
+const {
+  getObjectAccessContext,
+  getParamsAccessContext,
+  getArrayAccessContext,
+  getCompletedObjectAccessContext,
+  getCompletedParamsAccessContext,
+  getCompletedArrayAccessContext
+} = require('./context');
 const { parsePhpClass } = require('./parsers/phpClassParser');
 
 function resolveCompletionContext(document, position, index) {
+  const arrayAccess = getArrayAccessContext(document, position);
+  if (arrayAccess) {
+    const shapeMembers = resolveArrayShapeMembers(document, position.line, arrayAccess.receiver, arrayAccess.path, index);
+    if (shapeMembers.length > 0) {
+      return {
+        kind: 'array-key',
+        prefix: arrayAccess.prefix,
+        receiverType: 'array',
+        items: shapeMembers.map((entry) => ({
+          ...entry,
+          memberKind: 'array-key'
+        }))
+      };
+    }
+  }
+
   const paramsAccess = getParamsAccessContext(document, position);
   if (paramsAccess) {
     return {
@@ -12,7 +35,7 @@ function resolveCompletionContext(document, position, index) {
       receiverType: 'array',
       items: index.paramValues().map((entry) => ({
         ...entry,
-        type: 'mixed',
+        type: entry.type || 'mixed',
         memberKind: 'array-key'
       }))
     };
@@ -60,6 +83,23 @@ function resolveCompletionContext(document, position, index) {
 }
 
 function resolveMemberContext(document, position, index) {
+  const completedArrayAccess = getCompletedArrayAccessContext(document, position);
+  if (completedArrayAccess) {
+    const shapeMembers = resolveArrayShapeMembers(document, position.line, completedArrayAccess.receiver, completedArrayAccess.path, index);
+    const entry = shapeMembers.find((item) => item.name === completedArrayAccess.keyName);
+    if (entry) {
+      return {
+        kind: 'array-key',
+        receiverType: 'array',
+        member: {
+          ...entry,
+          memberKind: 'array-key'
+        },
+        range: completedArrayAccess.range
+      };
+    }
+  }
+
   const paramsAccess = getCompletedParamsAccessContext(document, position);
   if (paramsAccess) {
     if (paramsAccess.keyKind === 'literal') {
@@ -70,7 +110,7 @@ function resolveMemberContext(document, position, index) {
           receiverType: 'array',
           member: {
             ...entry,
-            type: 'mixed',
+            type: entry.type || 'mixed',
             memberKind: 'array-key'
           },
           range: paramsAccess.range
@@ -87,7 +127,7 @@ function resolveMemberContext(document, position, index) {
           receiverType: 'array',
           member: {
             ...matches[0],
-            type: matches.length === 1 ? 'mixed' : `mixed (${matches.map((item) => item.name).join(' | ')})`,
+            type: matches.length === 1 ? (matches[0].type || 'mixed') : `mixed (${matches.map((item) => item.name).join(' | ')})`,
             memberKind: 'array-key',
             detail: matches.map((item) => item.name).join(' | ')
           },
@@ -235,6 +275,37 @@ function resolveVariableType(document, lineNumber, variableName, index) {
   return undefined;
 }
 
+function resolveVariableArrayShape(document, lineNumber, variableName, index) {
+  const maxLookback = Math.max(0, lineNumber - 80);
+  for (let line = lineNumber; line >= maxLookback; line -= 1) {
+    const text = document.lineAt(line).text;
+
+    const paramsLiteralMatch = text.match(new RegExp(`\\${escapeRegExp(variableName)}\\s*=\\s*\\\\?Yii::\\$app->params\\[\\s*['"]([^'"]+)['"]\\s*\\]`));
+    if (paramsLiteralMatch) {
+      return getShapeMembersForParamEntry(index.getParam(paramsLiteralMatch[1]), []);
+    }
+
+    const paramsVariableMatch = text.match(new RegExp(`\\${escapeRegExp(variableName)}\\s*=\\s*\\\\?Yii::\\$app->params\\[\\s*(\\$[A-Za-z_]\\w*)\\s*\\]`));
+    if (paramsVariableMatch) {
+      const options = resolveVariableLiteralOptions(document, line, paramsVariableMatch[1]);
+      const merged = mergeShapeMembers(options.map((name) => getShapeMembersForParamEntry(index.getParam(name), [])));
+      if (merged.length > 0) {
+        return merged;
+      }
+    }
+
+    const variableArrayLiteralMatch = text.match(new RegExp(`\\${escapeRegExp(variableName)}\\s*=\\s*(\\$[A-Za-z_]\\w*)((?:\\s*\\[\\s*['"][^'"]+['"]\\s*\\])+);?`));
+    if (variableArrayLiteralMatch) {
+      const parentMembers = resolveArrayShapeMembers(document, line, variableArrayLiteralMatch[1], parseLiteralChain(variableArrayLiteralMatch[2]), index);
+      if (parentMembers.length > 0) {
+        return parentMembers;
+      }
+    }
+  }
+
+  return [];
+}
+
 function resolveVariableLiteralOptions(document, lineNumber, variableName) {
   const maxLookback = Math.max(0, lineNumber - 40);
   const values = new Set();
@@ -256,6 +327,78 @@ function resolveVariableLiteralOptions(document, lineNumber, variableName) {
   }
 
   return [];
+}
+
+function resolveArrayShapeMembers(document, lineNumber, receiver, path, index) {
+  const normalized = String(receiver).trim();
+  const keyPath = Array.isArray(path) ? path : [];
+
+  if (normalized.match(/^\\?Yii::\$app->params$/)) {
+    if (keyPath.length === 0) {
+      return index.paramValues();
+    }
+
+    return getShapeMembersForParamEntry(index.getParam(keyPath[0]), keyPath.slice(1));
+  }
+
+  const variableMatch = normalized.match(/^(\$[A-Za-z_]\w*)$/);
+  if (variableMatch) {
+    let members = resolveVariableArrayShape(document, lineNumber, variableMatch[1], index);
+    for (const segment of keyPath) {
+      const next = members.find((item) => item.name === segment);
+      if (!next || !Array.isArray(next.children)) {
+        return [];
+      }
+
+      members = next.children;
+    }
+
+    return members;
+  }
+
+  return [];
+}
+
+function getShapeMembersForParamEntry(entry, path) {
+  if (!entry) {
+    return [];
+  }
+
+  let current = entry;
+  const keyPath = Array.isArray(path) ? path : [];
+  for (const segment of keyPath) {
+    if (!current || !Array.isArray(current.children)) {
+      return [];
+    }
+
+    current = current.children.find((item) => item.name === segment);
+  }
+
+  if (current && Array.isArray(current.children) && current.children.length > 0) {
+    return current.children;
+  }
+
+  return [];
+}
+
+function parseLiteralChain(chain) {
+  const values = [];
+  for (const match of String(chain).matchAll(/\[\s*['"]([^'"]+)['"]\s*\]/g)) {
+    values.push(match[1]);
+  }
+  return values;
+}
+
+function mergeShapeMembers(groups) {
+  const merged = new Map();
+  for (const group of groups) {
+    for (const item of group || []) {
+      if (!merged.has(item.name)) {
+        merged.set(item.name, item);
+      }
+    }
+  }
+  return Array.from(merged.values()).sort((left, right) => left.name.localeCompare(right.name));
 }
 
 function resolveCurrentClassType(document, index) {
@@ -304,5 +447,6 @@ module.exports = {
   resolveMemberContext,
   resolveReceiverType,
   resolveVariableType,
-  resolveVariableLiteralOptions
+  resolveVariableLiteralOptions,
+  resolveArrayShapeMembers
 };

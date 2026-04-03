@@ -129,6 +129,25 @@ function run() {
   const paramsEntries = parseParamsFile(paramsFixture, fakeUri('params-local.php'));
   assert.strictEqual(paramsEntries.length, 2);
   assert.strictEqual(paramsEntries[0].name, 'detect_config');
+  assert.strictEqual(paramsEntries[0].type, 'array');
+  assert.strictEqual(paramsEntries[0].children[0].name, 'num');
+
+  const deepParamsFixture = [
+    '<?php',
+    'return [',
+    "    'minio_cloud_conf' => [",
+    "        'list' => [",
+    "            'omni' => [",
+    "                'bucket' => 'omni',",
+    '            ],',
+    '        ],',
+    '    ],',
+    '];'
+  ].join('\n');
+  const deepParamsEntries = parseParamsFile(deepParamsFixture, fakeUri('deep-params.php'));
+  assert.strictEqual(deepParamsEntries[0].children[0].name, 'list');
+  assert.strictEqual(deepParamsEntries[0].children[0].children[0].name, 'omni');
+  assert.strictEqual(deepParamsEntries[0].children[0].children[0].children[0].name, 'bucket');
 
   process.stdout.write('parserSelfCheck: OK\n');
 }

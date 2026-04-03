@@ -19,14 +19,20 @@ function getObjectAccessContext(document, position) {
 function getParamsAccessContext(document, position) {
   const lineText = document.lineAt(position.line).text;
   const linePrefix = lineText.slice(0, position.character);
-  const match = linePrefix.match(/\\?Yii::\$app->params\[\s*['"]([^'"]*)$/);
-  if (!match) {
+  const context = parseIncompleteArrayAccess(linePrefix);
+  if (!context || context.receiver.replace(/^\\/, '') !== 'Yii::$app->params' || context.path.length > 0) {
     return null;
   }
 
   return {
-    prefix: match[1]
+    prefix: context.prefix
   };
+}
+
+function getArrayAccessContext(document, position) {
+  const lineText = document.lineAt(position.line).text;
+  const linePrefix = lineText.slice(0, position.character);
+  return parseIncompleteArrayAccess(linePrefix);
 }
 
 function getCompletedObjectAccessContext(document, position) {
@@ -61,8 +67,12 @@ function getCompletedParamsAccessContext(document, position) {
 
   const word = document.getText(range);
   const linePrefix = lineText.slice(0, range.end.character);
-  const literalMatch = linePrefix.match(/\\?Yii::\$app->params\[\s*['"]([^'"]+)$/);
-  if (literalMatch && literalMatch[1] === word) {
+  const context = parseCompletedArrayAccess(linePrefix);
+  if (!context || context.receiver.replace(/^\\/, '') !== 'Yii::$app->params' || context.path.length > 0) {
+    return null;
+  }
+
+  if (context.keyKind === 'literal' && context.keyName === word) {
     return {
       keyName: word,
       keyKind: 'literal',
@@ -70,8 +80,7 @@ function getCompletedParamsAccessContext(document, position) {
     };
   }
 
-  const variableMatch = linePrefix.match(/\\?Yii::\$app->params\[\s*(\$[A-Za-z_]\w*)$/);
-  if (variableMatch && variableMatch[1] === word) {
+  if (context.keyKind === 'variable' && context.keyName === word) {
     return {
       keyName: word,
       keyKind: 'variable',
@@ -82,9 +91,79 @@ function getCompletedParamsAccessContext(document, position) {
   return null;
 }
 
+function getCompletedArrayAccessContext(document, position) {
+  const lineText = document.lineAt(position.line).text;
+  const range = document.getWordRangeAtPosition(position, /[^'"[\]]+/);
+  if (!range) {
+    return null;
+  }
+
+  const word = document.getText(range);
+  const linePrefix = lineText.slice(0, range.end.character);
+  const context = parseCompletedArrayAccess(linePrefix);
+  if (!context || context.keyKind !== 'literal' || context.keyName !== word) {
+    return null;
+  }
+
+  return {
+    receiver: context.receiver,
+    path: context.path,
+    keyName: word,
+    range
+  };
+}
+
+function parseIncompleteArrayAccess(linePrefix) {
+  const match = linePrefix.match(/((?:\\?Yii::\$app->params)|(?:\$[A-Za-z_]\w*))((?:\s*\[\s*(?:'[^']*'|"[^"]*"|\$[A-Za-z_]\w*)\s*\])*)\s*\[\s*['"]([^'"]*)$/);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    receiver: normalizeReceiver(match[1]),
+    path: parseKeySegments(match[2]).filter((segment) => segment.kind === 'literal').map((segment) => segment.value),
+    prefix: match[3]
+  };
+}
+
+function parseCompletedArrayAccess(linePrefix) {
+  const match = linePrefix.match(/((?:\\?Yii::\$app->params)|(?:\$[A-Za-z_]\w*))((?:\s*\[\s*(?:'[^']*'|"[^"]*"|\$[A-Za-z_]\w*)\s*\])*)\s*\[\s*(?:'([^']+)|"([^"]+)|(\$[A-Za-z_]\w*))$/);
+  if (!match) {
+    return null;
+  }
+
+  const keyName = match[3] || match[4] || match[5];
+  return {
+    receiver: normalizeReceiver(match[1]),
+    path: parseKeySegments(match[2]).filter((segment) => segment.kind === 'literal').map((segment) => segment.value),
+    keyKind: match[5] ? 'variable' : 'literal',
+    keyName
+  };
+}
+
+function parseKeySegments(chain) {
+  const values = [];
+  for (const match of String(chain).matchAll(/\[\s*('([^']*)'|"([^"]*)"|(\$[A-Za-z_]\w*))\s*\]/g)) {
+    if (match[4]) {
+      values.push({ kind: 'variable', value: match[4] });
+      continue;
+    }
+
+    values.push({ kind: 'literal', value: match[2] || match[3] || '' });
+  }
+
+  return values;
+}
+
+function normalizeReceiver(value) {
+  return String(value).replace(/\s+/g, ' ').trim();
+}
+
 module.exports = {
   getObjectAccessContext,
   getParamsAccessContext,
+  getArrayAccessContext,
   getCompletedObjectAccessContext,
-  getCompletedParamsAccessContext
+  getCompletedParamsAccessContext,
+  getCompletedArrayAccessContext
 };

@@ -51,6 +51,15 @@ class ProjectIndex {
     return this.params.get(name);
   }
 
+  getParamChildEntries(name) {
+    const entry = this.getParam(name);
+    return entry && Array.isArray(entry.children) ? entry.children : [];
+  }
+
+  getParamChildEntry(name, childName) {
+    return this.getParamChildEntries(name).find((entry) => entry.name === childName);
+  }
+
   getClass(typeName) {
     if (!typeName) {
       return undefined;

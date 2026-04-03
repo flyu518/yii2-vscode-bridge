@@ -26,8 +26,9 @@ Yii2 VSCode Bridge 是一个面向 Yii2 项目的扩展，主要用于配合 PHP
 | --- | --- | --- | --- |
 | `Yii::$app->component` 属性补全 | 支持 | `ide.php`、`config/__autocomplete.php`、Yii config、内置组件映射 | 适合 `db`、`request`、`cache` 等组件 |
 | `Yii::$app->getXxx()` 方法补全 | 支持 | 应用类及父类方法索引 | 例如 `getDb()` |
-| `Yii::$app->params['key']` 字面量参数键提示/跳转 | 支持 | `params.php` / `params-local.php` 顶层键索引 | 仅支持顶层键 |
+| `Yii::$app->params['key']` 字面量参数键提示/跳转 | 支持 | `params.php` / `params-local.php` 顶层键索引 | 支持顶层键 |
 | `Yii::$app->params[$key]` 动态参数键静态推断 | 部分支持 | 变量字面量回溯 + 参数索引 | 仅支持当前文件附近能静态看出的字符串分支，不是运行时变量值求值 |
+| 静态数组 params 子键提示/跳转 | 支持 | `params.php` / `params-local.php` 字面量数组结构 | 支持多层静态数组链，例如 `minio_cloud_conf['list']['omni']['bucket']` |
 | `\Yii::$app->...` 补全 | 支持 | 同上 | 与 `Yii::$app` 等价处理 |
 | `$this->property` / `$this->method()` 解析 | 支持 | 当前类、父类、注释、getter、关系方法 | 依赖类索引结果 |
 | 已知局部变量 `->...` 解析 | 支持 | 局部上下文推断 + 类索引 | 仅覆盖当前已实现的几类赋值模式 |
@@ -214,8 +215,10 @@ public function getRecognition()
 
 说明：
 
-- 当前只索引顶层键，不递归索引更深层的 `['num']`、`['time']`
+- 静态字面量数组会继续索引子键，支持多层链式访问，例如 `detect_config['num']`、`minio_cloud_conf['list']['omni']['bucket']`
+- 动态来源的值如果无法静态展开，仍然只保留顶层键
 - 同名参数键会按优先级覆盖，`*-local.php` 会高于普通 `*.php`
+
 
 ### 推荐做法
 

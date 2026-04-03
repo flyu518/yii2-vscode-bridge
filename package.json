@@ -2,7 +2,7 @@
   "name": "yii2-vscode-bridge",
   "displayName": "Yii2 VSCode Bridge",
   "description": "用于配合 PHP Intelephense，弥补其在 Yii2 框架中的动态语义识别不足，适用于 VSCode、Cursor 等基于 VSCode 扩展生态的编辑器。",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "local",
   "private": true,
   "license": "UNLICENSED",
