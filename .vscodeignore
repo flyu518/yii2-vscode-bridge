@@ -1,0 +1,6 @@
+.git/**
+node_modules/**
+src/test/**
+.gitignore
+CHANGELOG.md
+RELEASE.md

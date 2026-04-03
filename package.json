@@ -1,0 +1,115 @@
+{
+  "name": "yii2-vscode-bridge",
+  "displayName": "Yii2 VSCode Bridge",
+  "description": "为 Yii2 项目补充 Yii::$app、params、动态属性、getter 和关系方法等 VSCode 智能提示能力。",
+  "version": "0.0.1",
+  "publisher": "local",
+  "private": true,
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/flyu518/yii2-vscode-bridge.git"
+  },
+  "homepage": "https://github.com/flyu518/yii2-vscode-bridge",
+  "bugs": {
+    "url": "https://github.com/flyu518/yii2-vscode-bridge/issues"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:php",
+    "onCommand:yii2Bridge.applyWorkspaceSettings",
+    "onCommand:yii2Bridge.inspectSymbol",
+    "workspaceContains:ide.php"
+  ],
+  "main": "./src/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "yii2Bridge.applyWorkspaceSettings",
+        "title": "Yii2 Bridge: Apply Workspace Settings"
+      },
+      {
+        "command": "yii2Bridge.reindex",
+        "title": "Yii2 Bridge: Reindex Project"
+      },
+      {
+        "command": "yii2Bridge.inspectSymbol",
+        "title": "Yii2 Bridge: Inspect Symbol"
+      }
+    ],
+    "configuration": {
+      "title": "Yii2 VSCode Bridge",
+      "properties": {
+        "yii2Bridge.ideStubFiles": {
+          "type": "array",
+          "default": [
+            "ide.php"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "Workspace-relative glob patterns used to find Yii IDE helper stub files."
+        },
+        "yii2Bridge.configFiles": {
+          "type": "array",
+          "default": [
+            "common/config/*.php",
+            "api/config/*.php",
+            "console/config/*.php"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "Workspace-relative glob patterns used to find Yii config files."
+        },
+        "yii2Bridge.enableBuiltInComponents": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to seed common Yii application components when no explicit metadata exists."
+        },
+        "yii2Bridge.classFiles": {
+          "type": "array",
+          "default": [
+            "api/**/*.php",
+            "common/**/*.php",
+            "console/**/*.php",
+            "vendor/yiisoft/yii2/**/*.php"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "Workspace-relative glob patterns used to find PHP class files for Yii-aware indexing."
+        },
+        "yii2Bridge.paramsFiles": {
+          "type": "array",
+          "default": [
+            "common/config/params*.php",
+            "api/config/params*.php",
+            "console/config/params*.php"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "Workspace-relative glob patterns used to find Yii params files."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "check": "node ./src/test/parserSelfCheck.js"
+  },
+  "keywords": [
+    "yii2",
+    "php",
+    "intelephense",
+    "vscode"
+  ],
+  "devDependencies": {
+    "@vscode/vsce": "^3.7.1"
+  }
+}
