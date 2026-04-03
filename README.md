@@ -244,13 +244,13 @@ npx @vscode/vsce package
 2. 在 VSCode 中安装：
 
 ```bash
-code --install-extension /绝对路径/yii2-vscode-bridge-0.0.1.vsix
+code --install-extension /绝对路径/yii2-vscode-bridge-0.0.2.vsix
 ```
 
 3. 在 Cursor 中安装：
 
 ```bash
-cursor --install-extension /绝对路径/yii2-vscode-bridge-0.0.1.vsix
+cursor --install-extension /绝对路径/yii2-vscode-bridge-0.0.2.vsix
 ```
 
 4. 也可以通过兼容 VSCode 扩展生态的编辑器界面安装：
@@ -262,3 +262,4 @@ cursor --install-extension /绝对路径/yii2-vscode-bridge-0.0.1.vsix
 - 每个工作区执行一次工作区设置命令。
 - 修改 `ide.php` 或配置文件后，重新运行 `Yii2 Bridge: Reindex Project`。
 - 安装后建议执行一次 `Yii2 Bridge: Apply Workspace Settings`，然后重载窗口。
+- `Yii2 Bridge: Apply Workspace Settings` 会在当前项目中生成或更新 `.vscode/settings.json`，写入推荐的工作区级 Intelephense 配置。
