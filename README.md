@@ -230,7 +230,7 @@ public function getRecognition()
 
 1. 它是否存在于上面这些来源之一
 2. 类型是否写成了静态可解析的形式
-3. 改完后是否执行了 `Yii2 Bridge: Reindex Project`
+3. 改完并保存后，如果补全、悬停或跳转没有及时更新，再执行 `Yii2 Bridge: Reindex Project`
 
 ## 安装方式
 
